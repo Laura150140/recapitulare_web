@@ -2,6 +2,7 @@ const adresaAPI = 'https://dummyjson.com/products';
 
 const formular = document.getElementById('formular-produs');
 const listaProduse = document.getElementById('lista-produse');
+const cautare = document.getElementById('cautare');
 const mesajLista = document.getElementById('mesaj-lista');
 const mesajFormular = document.getElementById('mesaj-formular');
 const numarProduse = document.getElementById('numar-produse');
@@ -15,7 +16,11 @@ function arataMesaj(element, text, tip = '') {
 }
 
 function afiseazaProduse() {
-    const rezultate = produse;
+    const textCautat = cautare.value.trim().toLowerCase();
+    const rezultate = produse.filter(function(produs) {
+        return produs.title.toLowerCase().includes(textCautat) ||
+               (produs.description || '').toLowerCase().includes(textCautat);
+    });
 
     listaProduse.replaceChildren();
     numarProduse.textContent = rezultate.length + ' produse afisate';
@@ -23,7 +28,7 @@ function afiseazaProduse() {
     if (rezultate.length === 0) {
         const paragraf = document.createElement('p');
         paragraf.className = 'fara-rezultate';
-        paragraf.textContent = 'Lista este goala.';
+        paragraf.textContent = textCautat ? 'Niciun produs nu corespunde cautarii.' : 'Lista este goala.';
         listaProduse.appendChild(paragraf);
         return;
     }
@@ -87,6 +92,7 @@ formular.addEventListener('submit', function(eveniment) {
     arataMesaj(mesajFormular, 'TODO');
 });
 
+cautare.addEventListener('input', afiseazaProduse);
 butonReincarcare.addEventListener('click', incarcaProduse);
 
 incarcaProduse();
