@@ -6,15 +6,28 @@ const cautare = document.getElementById('cautare');
 const mesajLista = document.getElementById('mesaj-lista');
 const mesajFormular = document.getElementById('mesaj-formular');
 const numarProduse = document.getElementById('numar-produse');
+const butonAdaugare = document.getElementById('buton-adaugare');
 const butonReincarcare = document.getElementById('buton-reincarcare');
 
 let produse = [];
+let produseAdaugate = [];
 
+try {
+    produseAdaugate = JSON.parse(localStorage.getItem('produseAdaugate')) || [];
+    if (!Array.isArray(produseAdaugate)) {
+        produseAdaugate = [];
+    }
+} catch (eroare) {
+    produseAdaugate = [];
+}
+
+// functia care arata mesajele de pe pagina
 function arataMesaj(element, text, tip = '') {
     element.textContent = text;
     element.className = 'mesaj ' + tip;
 }
 
+// functia care afiseaza produsele si filtreaza dupa cautare
 function afiseazaProduse() {
     const textCautat = cautare.value.trim().toLowerCase();
     const rezultate = produse.filter(function(produs) {
@@ -55,6 +68,7 @@ function afiseazaProduse() {
     });
 }
 
+// functia care incarca produsele de pe api
 async function incarcaProduse() {
     arataMesaj(mesajLista, 'Se incarca produsele...');
     butonReincarcare.disabled = true;
@@ -68,7 +82,8 @@ async function incarcaProduse() {
         }
 
         const date = await raspuns.json();
-        produse = Array.isArray(date.products) ? date.products : [];
+        const produseDinAPI = Array.isArray(date.products) ? date.products : [];
+        produse = [...produseAdaugate, ...produseDinAPI];
         afiseazaProduse();
 
         if (produse.length === 0) {
@@ -77,9 +92,8 @@ async function incarcaProduse() {
             arataMesaj(mesajLista, 'Produsele au fost incarcate.', 'succes');
         }
     } catch (eroare) {
-        produse = [];
-        listaProduse.replaceChildren();
-        numarProduse.textContent = '0 produse afisate';
+        produse = [...produseAdaugate];
+        afiseazaProduse();
         arataMesaj(mesajLista, 'Eroare la incarcare. Incearca din nou.', 'eroare');
         console.error(eroare);
     } finally {
@@ -87,11 +101,72 @@ async function incarcaProduse() {
     }
 }
 
-formular.addEventListener('submit', function(eveniment) {
+// functia care trimite produsul nou la api
+async function adaugaProdus(eveniment) {
     eveniment.preventDefault();
-    arataMesaj(mesajFormular, 'TODO');
-});
 
+    const dateFormular = new FormData(formular);
+    const produsNou = {
+        title: String(dateFormular.get('nume') || '').trim(),
+        price: Number(dateFormular.get('pret')),
+        description: String(dateFormular.get('descriere') || '').trim()
+    };
+
+    if (!produsNou.title || !produsNou.description || !Number.isFinite(produsNou.price) || produsNou.price <= 0) {
+        arataMesaj(mesajFormular, 'Completeaza toate campurile corect.', 'eroare');
+        return;
+    }
+
+    arataMesaj(mesajFormular, 'Se trimite produsul...');
+    butonAdaugare.disabled = true;
+
+    try {
+        const raspuns = await fetch(adresaAPI + '/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(produsNou)
+        });
+        const dateServer = await raspuns.json().catch(function() { return {}; });
+
+        if (raspuns.status >= 400 && raspuns.status < 500) {
+            const eroareServer = dateServer.message || dateServer.error || 'Cererea nu a fost acceptata.';
+            arataMesaj(mesajFormular, eroareServer, 'eroare');
+            return;
+        }
+
+        if (!raspuns.ok) {
+            arataMesaj(mesajFormular, 'Serverul nu a putut salva produsul.', 'eroare');
+            return;
+        }
+
+        if (raspuns.status !== 201) {
+            arataMesaj(mesajFormular, 'Raspuns neasteptat de la server HTTP ' + raspuns.status, 'eroare');
+            return;
+        }
+
+        produsNou.id = dateServer.id || Date.now();
+        produseAdaugate.unshift(produsNou);
+        produse.unshift(produsNou);
+
+        try {
+            localStorage.setItem('produseAdaugate', JSON.stringify(produseAdaugate));
+        } catch (eroare) {
+            console.warn('Nu am putut salva produsul in browser', eroare);
+        }
+
+        formular.reset();
+        cautare.value = '';
+        afiseazaProduse();
+        arataMesaj(mesajFormular, 'Produsul a fost adaugat cu succes!', 'succes');
+    } catch (eroare) {
+        arataMesaj(mesajFormular, 'Eroare de retea. Incearca din nou.', 'eroare');
+        console.error(eroare);
+    } finally {
+        butonAdaugare.disabled = false;
+    }
+}
+
+formular.addEventListener('submit', adaugaProdus);
 cautare.addEventListener('input', afiseazaProduse);
 butonReincarcare.addEventListener('click', incarcaProduse);
 
