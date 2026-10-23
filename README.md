@@ -1,4 +1,4 @@
-# Catalog de produse - Tema 7
+# Catalog de produse - Tema
 1. Proiect realizat in HTML, CSS si JavaScript pentru afisarea, cautarea si adaugarea produselor.
 2. API folosit: https://dummyjson.com/products
 3. Pentru GET folosesc https://dummyjson.com/products?limit=30 ca sa incarc lista de produse.
